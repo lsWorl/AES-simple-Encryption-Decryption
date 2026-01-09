@@ -21,6 +21,9 @@ extern const byte Sbox[256];
 // 轮常量声明
 extern const byte Rcon[11];
 
+// 逆S盒常量声明
+extern const byte InvSBox[256];
+
 // 函数声明
 void init_state(byte input[STATE_SIZE]);
 void SubBytes(void);
@@ -33,5 +36,9 @@ void sub_word(byte* word);
 void key_expansion(byte key[STATE_SIZE], byte roundKeys[44][4]);
 void add_round_key(byte roundKeys[44][4], int round);
 void print_state(void);
+byte mul_by_09(byte x);
+byte mul_by_0b(byte x);
+byte mul_by_0d(byte x);
+byte mul_by_0e(byte x);
 
 #endif // COMMON_H

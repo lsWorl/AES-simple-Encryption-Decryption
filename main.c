@@ -1,6 +1,6 @@
 #include "common.h"
 #include "AESEncryption.h"
-
+#include "AESDecryption.h"
 int main(void) {
     // 对应论文地址为https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf
     // 状态向量采用Appendix B中的测试向量
@@ -28,5 +28,10 @@ int main(void) {
     }
     printf("\n");
     
+    decrypt(key, output, input);
+    printf("Decrypted output:\n");
+    for(int i = 0; i < STATE_SIZE; i++) {
+        printf("%02x ", input[i]);
+    }
     return 0;
 }
