@@ -99,3 +99,84 @@ void decrypt(byte key[16], byte input[16], byte output[16])
     }
 }
 
+// 使用CBC模式的AES解密函数
+void decrypt_cbc(byte key[16], byte iv[16], byte *input, byte *output, int length)
+{
+    size_t block_count = length / BLOCK_SIZE;
+    byte previous_block[BLOCK_SIZE];
+    memcpy(previous_block, iv, BLOCK_SIZE); // 初始化前一个块为IV
+    for(size_t i = 0; i < block_count; i++)
+    {
+        byte block[BLOCK_SIZE];
+        memcpy(block, input + i * BLOCK_SIZE, BLOCK_SIZE);
+
+        byte decrypted_block[BLOCK_SIZE];
+        decrypt(key, block, decrypted_block);
+
+        // 与前一个密文块（或IV）进行异或操作
+        for (int j = 0; j < BLOCK_SIZE; j++)
+        {
+            output[i * BLOCK_SIZE + j] = decrypted_block[j] ^ previous_block[j];
+        }
+
+        // 更新前一个块为当前密文块
+        memcpy(previous_block, block, BLOCK_SIZE);
+    }
+}
+
+//对文件进行AES解密
+void decrypt_file(const char *input_filename, const char *output_filename, byte key[16])
+{
+    FILE *fin = fopen(input_filename, "rb");
+    FILE *fout = fopen(output_filename, "wb");
+    if (!fin || !fout)
+    {
+        printf("File open error!\n");
+        if (fin) fclose(fin);
+        if (fout) fclose(fout);
+        return;
+    }
+
+    // 读取IV
+    byte iv[BLOCK_SIZE];
+    fread(iv, 1, BLOCK_SIZE, fin);
+
+    // 获取文件大小
+    fseek(fin, 0, SEEK_END);
+    long file_size = ftell(fin) - BLOCK_SIZE; // 减去IV的大小
+    fseek(fin, BLOCK_SIZE, SEEK_SET);         // 跳过IV
+
+    // 读取加密数据
+    byte *ciphertext = (byte *)malloc(file_size);
+    fread(ciphertext, 1, file_size, fin);
+
+    // 解密数据缓冲区
+    byte *plaintext = (byte *)malloc(file_size);
+
+    // 执行CBC解密
+    decrypt_cbc(key, iv, ciphertext, plaintext, file_size);
+
+    // 移除填充
+    byte *unpadded_plaintext = (byte *)malloc(file_size);
+    int unpadded_len = pkcs7_unpad(plaintext, file_size, unpadded_plaintext);
+    if (unpadded_len < 0)
+    {
+        printf("Invalid padding!\n");
+        free(ciphertext);
+        free(plaintext);
+        free(unpadded_plaintext);
+        fclose(fin);
+        fclose(fout);
+        return;
+    }
+
+    // 写入解密后的数据
+    fwrite(unpadded_plaintext, 1, unpadded_len, fout);
+
+    // 清理资源
+    free(ciphertext);
+    free(plaintext);
+    free(unpadded_plaintext);
+    fclose(fin);
+    fclose(fout);
+}

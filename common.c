@@ -61,42 +61,6 @@ void init_state(byte input[STATE_SIZE])
     }
 }
 
-// 字节替代操作
-void SubBytes(void)
-{
-    int i, j;
-    for (i = 0; i < 4; i++)
-    {
-        for (j = 0; j < 4; j++)
-        {
-            state[i][j] = Sbox[state[i][j]];
-        }
-    }
-}
-
-// 行移位操作
-void shift_rows(void)
-{
-    byte temp[4][4];
-    int i, j;
-
-    for (i = 0; i < 4; i++)
-    {
-        for (j = 0; j < 4; j++)
-        {
-            temp[i][j] = state[i][j];
-        }
-    }
-
-    for (i = 0; i < 4; i++)
-    {
-        for (j = 0; j < 4; j++)
-        {
-            state[i][j] = temp[i][(j + i) % 4];
-        }
-    }
-}
-
 // xtime函数：在GF(2^8)上乘以2
 byte xtime(byte x)
 {
@@ -113,29 +77,6 @@ byte mul_by_09(byte x) { return xtime(xtime(xtime(x))) ^ x; }                   
 byte mul_by_0b(byte x) { return xtime(xtime(xtime(x))) ^ xtime(x) ^ x; }               // ×8 ^ ×2 ^ ×1
 byte mul_by_0d(byte x) { return xtime(xtime(xtime(x))) ^ xtime(xtime(x)) ^ x; }        // ×8 ^ ×4 ^ ×1
 byte mul_by_0e(byte x) { return xtime(xtime(xtime(x))) ^ xtime(xtime(x)) ^ xtime(x); } // ×8 ^ ×4 ^ ×2
-
-// 列混合
-void MixColumns(void)
-{
-    byte temp[4][4];
-    int i, j;
-
-    for (i = 0; i < 4; i++)
-    {
-        for (j = 0; j < 4; j++)
-        {
-            temp[i][j] = state[i][j];
-        }
-    }
-
-    for (i = 0; i < 4; i++)
-    {
-        state[0][i] = xtime(temp[0][i]) ^ mul_by_03(temp[1][i]) ^ temp[2][i] ^ temp[3][i];
-        state[1][i] = temp[0][i] ^ xtime(temp[1][i]) ^ mul_by_03(temp[2][i]) ^ temp[3][i];
-        state[2][i] = temp[0][i] ^ temp[1][i] ^ xtime(temp[2][i]) ^ mul_by_03(temp[3][i]);
-        state[3][i] = mul_by_03(temp[0][i]) ^ temp[1][i] ^ temp[2][i] ^ xtime(temp[3][i]);
-    }
-}
 
 // 字循环操作
 void rot_word(byte *word)
@@ -218,3 +159,43 @@ void print_state(void)
         printf("\n");
     }
 }
+
+// 进行PKCS#7填充
+void pkcs7_pad(byte *input, int input_len, byte *output, int *output_len)
+{
+    // 计算需要填充长度
+    int pad_len = BLOCK_SIZE - (input_len % BLOCK_SIZE);
+    memcpy(output, input, input_len);
+    for (int i = 0; i < pad_len; i++)
+    {
+        output[input_len + i] = (byte)pad_len;
+    }
+    *output_len = input_len + pad_len;
+}
+
+// 移除PKCS#7填充
+int pkcs7_unpad(byte *input, int input_len, byte *output)
+{
+    if (input_len == 0)
+        return 0;
+    int pad_len = input[input_len - 1]; //获取填充长度
+    if (pad_len < 1 || pad_len > BLOCK_SIZE)
+        return -1; // 无效填充
+    for (int i = 0; i < pad_len; i++)
+    {
+        if (input[input_len - 1 - i] != pad_len)
+            return -1; // 无效填充
+    }
+    memcpy(output, input, input_len - pad_len);
+    return input_len - pad_len;
+}
+
+// 生成随机IV向量
+void generate_random_iv(byte iv[16])
+{
+    for (int i = 0; i < 16; i++)
+    {
+        iv[i] = (byte)(rand() % 256); // 生成0-255之间的随机字节
+    }
+}
+
